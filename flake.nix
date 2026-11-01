@@ -62,6 +62,18 @@
           exec "$CODEX_PROXY_BIN" --config "$config_file" --codex-login "$@"
         '';
       };
+      defaultPackage = pkgs.symlinkJoin {
+        name = "my-airi";
+        paths = [
+          start
+          login
+        ];
+        meta = {
+          description = "AIRI startup and Codex login commands";
+          mainProgram = "start-airi";
+          platforms = [ system ];
+        };
+      };
     in
     {
       packages.${system} = {
@@ -69,13 +81,13 @@
         aivisspeech-engine = engine;
         cli-proxy-api = proxy;
         inherit start login;
-        default = start;
+        default = defaultPackage;
       };
 
       apps.${system} = {
         default = {
           type = "app";
-          program = pkgs.lib.getExe start;
+          program = pkgs.lib.getExe defaultPackage;
           meta.description = "Start AIRI, Codex proxy, and AivisSpeech Engine";
         };
         start = {
@@ -101,6 +113,11 @@
       };
 
       checks.${system} = {
+        default-commands = pkgs.runCommand "airi-default-commands-check" { } ''
+          test -x ${defaultPackage}/bin/start-airi
+          test -x ${defaultPackage}/bin/airi-codex-login
+          touch "$out"
+        '';
         launcher =
           pkgs.runCommand "airi-launcher-checks"
             {

@@ -101,6 +101,19 @@ MY_AIRI_PROXY_CONFIG=/絶対パス/cli-proxy-api.yaml nix run .#login
 MY_AIRI_PROXY_CONFIG=/絶対パス/cli-proxy-api.yaml nix run .#start
 ```
 
+### コマンドをインストールする
+
+```sh
+nix profile install .
+```
+
+インストール後は、次のコマンドを利用できます。
+
+```sh
+airi-codex-login
+start-airi
+```
+
 ## AIRI 内の接続設定
 
 この設定は AIRI の画面内で行います。
