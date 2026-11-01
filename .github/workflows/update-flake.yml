@@ -26,8 +26,7 @@ jobs:
       - uses: actions/create-github-app-token@v3.3.0
         id: app-token
         with:
-          # The action's app-id input also accepts the recommended Client ID.
-          app-id: ${{ vars.FLAKE_UPDATE_APP_CLIENT_ID }}
+          client-id: ${{ vars.FLAKE_UPDATE_APP_CLIENT_ID }}
           private-key: ${{ secrets.FLAKE_UPDATE_APP_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
