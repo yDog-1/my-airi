@@ -1,0 +1,56 @@
+name: Update flake
+
+# Install a GitHub App with Contents and Pull requests read/write permissions.
+# Configure variables FLAKE_UPDATE_APP_CLIENT_ID and FLAKE_UPDATE_APP_SLUG (without [bot]),
+# and secret FLAKE_UPDATE_APP_PRIVATE_KEY. Enable squash merging in the repository.
+on:
+  schedule:
+    # Monday 04:00 JST (Sunday 19:00 UTC).
+    - cron: '0 19 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-flake
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      # GITHUB_TOKEN-created PRs do not trigger pull_request workflows.
+      - uses: actions/create-github-app-token@v2.2.2
+        id: app-token
+        with:
+          # The action's app-id input also accepts the recommended Client ID.
+          app-id: ${{ vars.FLAKE_UPDATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.FLAKE_UPDATE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: actions/checkout@v4.4.0
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: cachix/install-nix-action@v31.11.3
+        with:
+          github_access_token: ${{ github.token }}
+      - name: Update flake inputs
+        run: nix flake update --accept-flake-config
+      - name: Create or update pull request
+        uses: peter-evans/create-pull-request@v7.0.11
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: automation/update-flake
+          base: ${{ github.event.repository.default_branch }}
+          add-paths: flake.lock
+          commit-message: 'chore(deps): update flake inputs'
+          title: 'chore(deps): update flake inputs'
+          body: |
+            Automated `nix flake update` for all inputs in `flake.lock`.
+
+            CI will check and build the flake before merging this PR.
+          delete-branch: true

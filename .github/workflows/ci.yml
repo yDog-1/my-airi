@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Nix check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4.4.0
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@v31.11.3
+        with:
+          github_access_token: ${{ github.token }}
+      - name: Check and build flake
+        # Includes launcher tests, ShellCheck, and the default command closure.
+        run: nix flake check --accept-flake-config --no-update-lock-file --print-build-logs
+
+  merge-flake-update:
+    name: Merge flake update
+    needs: check
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'automation/update-flake' &&
+      vars.FLAKE_UPDATE_APP_SLUG != '' &&
+      github.event.pull_request.user.login == format('{0}[bot]', vars.FLAKE_UPDATE_APP_SLUG)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # Do not check out or execute PR code in this write-enabled job.
+      - name: Verify changes and merge tested revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          files=$(gh api --paginate "repos/$GH_REPO/pulls/$PR_NUMBER/files" --jq '.[].filename')
+          if [[ "$files" != 'flake.lock' ]]; then
+            echo 'Refusing to merge: expected only flake.lock to change.' >&2
+            exit 1
+          fi
+          gh pr merge "$PR_NUMBER" --squash --delete-branch --match-head-commit "$HEAD_SHA"
