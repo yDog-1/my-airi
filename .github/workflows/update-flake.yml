@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 30
     steps:
       # GITHUB_TOKEN-created PRs do not trigger pull_request workflows.
-      - uses: actions/create-github-app-token@v3.3.0
+      - uses: actions/create-github-app-token@v3.4.0
         id: app-token
         with:
           client-id: ${{ vars.FLAKE_UPDATE_APP_CLIENT_ID }}
@@ -34,13 +34,13 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
-      - uses: cachix/install-nix-action@v31.11.3
+      - uses: cachix/install-nix-action@v31.11.5
         with:
           github_access_token: ${{ github.token }}
       - name: Update flake inputs
         run: nix flake update --accept-flake-config
       - name: Create or update pull request
-        uses: peter-evans/create-pull-request@v8.1.1
+        uses: peter-evans/create-pull-request@v8.1.3
         with:
           token: ${{ steps.app-token.outputs.token }}
           branch: automation/update-flake
